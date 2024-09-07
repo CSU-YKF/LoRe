@@ -22,7 +22,7 @@ using namespace std;
  * 
  * @param cloud_in The input point cloud to be clipped.
  */
-static void boxclip3d(pcl::PointCloud<pcl::PointXYZRGB>& cloud_in)
+static void boxclip3d(pcl::PointCloud<pcl::PointXYZ>& cloud_in)
 {
     Eigen::Affine3f transformation = Eigen::Affine3f::Identity();
 
@@ -35,17 +35,17 @@ static void boxclip3d(pcl::PointCloud<pcl::PointXYZRGB>& cloud_in)
     transformation.translation() << -center.x(), -center.y(), -center.z() - 1;
 
     // Create a BoxClipper3D object with the transformation
-    pcl::BoxClipper3D<pcl::PointXYZRGB> boxClip3d(transformation);
+    pcl::BoxClipper3D<pcl::PointXYZ> boxClip3d(transformation);
     pcl::Indices cliped;
     boxClip3d.clipPointCloud3D(cloud_in, cliped);
 
     cout << cliped.size() << endl;
     // Change the color of the filtered points
-    for (auto& idx : cliped)
-    {
-        cloud_in.points[idx].r = 255;
-        cloud_in.points[idx].g = 0;
-    }
+    //for (auto& idx : cliped)
+    //{
+    //    cloud_in.points[idx].r = 255;
+    //    cloud_in.points[idx].g = 0;
+    //}
 }
 
 /**
@@ -181,13 +181,13 @@ static void cropHull(pcl::PointCloud<pcl::PointXYZRGB>& cloud_in)
 //    return 0;
 //}
 
-int main(int argc, char** argv[])
+int main(int argc, char** argv)
 {
     // 创建一个PointCloud对象
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 
     // 读取PCD文件
-    if (pcl::io::loadPCDFile<pcl::PointXYZ>("D:\\LoRe\\example.pcd", *cloud) == -1) // 这里替换为你的PCD文件路径
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>(R"(D:\LoRe\datasets\example.pcd)", *cloud) == -1) // 这里替换为你的PCD文件路径
     {
         PCL_ERROR("Couldn't read file example.pcd \n");
         return (-1);
@@ -204,6 +204,7 @@ int main(int argc, char** argv[])
     std::cout << "Min point: (" << minPt.x << ", " << minPt.y << ", " << minPt.z << ")" << std::endl;
     std::cout << "Max point: (" << maxPt.x << ", " << maxPt.y << ", " << maxPt.z << ")" << std::endl;
 
+    boxclip3d(*cloud);
 
     // 显示点云数据
     pcl::visualization::CloudViewer viewer("Cloud Viewer");

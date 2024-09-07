@@ -1,1 +1,47 @@
+# Visual Studio 2022
 .vs
+*.vcxproj
+*.vcxproj.filters
+*.sln
+*.vcxproj.user
+
+# CMake
+CMakeFiles
+CMakeCache.txt
+CMakeScripts
+CMakeSettings.json
+cmake-build-*
+
+# Build
+build
+bin
+*.o
+*.obj
+*.a
+*.lib
+*.dll
+*.exe
+*.so
+*.dylib
+*.pdb
+*.ilk
+*.exp
+*.idb
+*.manifest
+*.ipch
+*.iobj
+
+# Debug
+Debug
+debug
+*.dSYM
+
+# Release
+Release
+release
+
+# out
+out
+
+# idea
+.idea
