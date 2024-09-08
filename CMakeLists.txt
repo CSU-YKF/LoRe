@@ -10,7 +10,11 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
  
-add_executable(LoRe src/BoxClipper3D.cpp)
+add_executable(LoRe src/BoxClipper3D.cpp
+        src/pcd_reader.cpp
+        src/passthrough.cpp
+        src/passthrough.cpp
+        src/voxel_grid.cpp)
 target_link_libraries (LoRe ${PCL_LIBRARIES} )
  
 install(TARGETS LoRe RUNTIME DESTINATION bin)
