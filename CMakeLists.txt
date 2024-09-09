@@ -14,7 +14,16 @@ add_executable(LoRe src/BoxClipper3D.cpp
         src/pcd_reader.cpp
         src/passthrough.cpp
         src/passthrough.cpp
-        src/voxel_grid.cpp)
+        src/voxel_grid.cpp
+        src/statistical_removal.cpp
+        src/statistical_removal.cpp
+        src/icp.cpp
+        src/icp.cpp
+        src/interactive_icp.cpp
+        src/interactive_icp.cpp
+        src/lore.cpp
+        src/lore.cpp
+        src/cluster_extraction.cpp)
 target_link_libraries (LoRe ${PCL_LIBRARIES} )
  
 install(TARGETS LoRe RUNTIME DESTINATION bin)

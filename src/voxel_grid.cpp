@@ -7,17 +7,17 @@
 #include "pcl/filters/voxel_grid.h"
 #include "pcl/point_types.h"
 
-int main() {
+int voxelGrid() {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
 
     pcl::PCLPointCloud2 cloud_blob;
-    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\examples.pcd)", cloud_blob);
+    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\example.pcd)", cloud_blob);
     pcl::fromPCLPointCloud2(cloud_blob, *cloud);
 
-    pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+    pcl::VoxelGrid<pcl::PointXYZ> sor;
     sor.setInputCloud(cloud);
-    sor.setLeafSize(0.1f, 0.1f, 0.1f);
+    sor.setLeafSize(5.0f, 5.0f, 5.0f);
     sor.filter(*cloud_filtered);
 
     pcl::visualization::CloudViewer viewer("Voxel Grid");
