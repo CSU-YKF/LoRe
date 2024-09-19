@@ -7,7 +7,6 @@
 #include "pcl/filters/filter.h"
 #include "pcl/filters/extract_indices.h"
 #include "pcl/filters/voxel_grid.h"
-#include "pcl/filters/statistical_outlier_removal.h"
 #include "pcl/search/kdtree.h"
 #include "pcl/segmentation/extract_clusters.h"
 #include "pcl/segmentation/sac_segmentation.h"
@@ -16,75 +15,60 @@
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
 
-
-static PointCloud filte(PointCloud &cloud_in) {
-    std::vector<int> indices;
-    PointCloud::Ptr cloud_filtered(new PointCloud);
-    std::cout << "Cloud before filtering: " << cloud_in.size() << std::endl;
-    pcl::removeNaNFromPointCloud(cloud_in, cloud_in, indices);
-    std::cout << "Cloud after removing NaN: " << cloud_in.size() << std::endl;
-
-    // 使用统计滤波（Statistical Outlier Removal）或体素网格下采样（Voxel Grid Down sampling）来降低点云的噪声和密度，优化处理速度。
-    // 由于Statistical Outlier Removal算法的速度太慢，因此使用Voxel Grid Down sampling算法。
-//    pcl::StatisticalOutlierRemoval<PointT> sor;
-//    sor.setInputCloud(cloud_in.makeShared());
-//    sor.setMeanK(50);
-//    sor.setStddevMulThresh(1.0);
-//    sor.filter(cloud_filtered);
-//    std::cout << "Cloud after Statistical Outlier Removal: " << cloud_filtered.size() << std::endl;
-
+/**
+ * @brief 对点云数据进行滤波处理，去除噪声和稀疏点。
+ * 步骤:
+ * 下采样：使用体素网格下采样算法（Voxel Grid Down sampling）对点云进行降采样，减少点云数据量。
+ * 去除离群点：使用统计滤波（Statistical Outlier Removal）或体素网格下采样（Voxel Grid Down sampling）来降低点云的噪声和密度，优化处理速度。
+ * 由于Statistical Outlier Removal算法的速度太慢，因此使用Voxel Grid Down sampling算法。
+ * @param cloud_in 输入点云
+ * @param param_distance 滤波参数
+ */
+static void downSampling(PointCloud &cloud_in, float param_distance = 1.0) {
+    //    pcl::StatisticalOutlierRemoval<PointT> sor;
+    //    sor.setInputCloud(cloud_in.makeShared());
+    //    sor.setMeanK(50);
+    //    sor.setStddevMulThresh(1.0);
+    //    sor.filter(cloud_in);
     pcl::VoxelGrid<PointT> vg;
-    PointCloud::Ptr cloud_vg(new PointCloud);
     vg.setInputCloud(cloud_in.makeShared());
-    vg.setLeafSize(3, 3, 3);
-    vg.filter(*cloud_vg);
-    std::cout << "Cloud after Voxel Grid: " << cloud_vg->size() << std::endl;
-    *cloud_filtered = *cloud_vg;
+    vg.setLeafSize(3 * param_distance, 3 * param_distance, 3 * param_distance);
+    vg.filter(cloud_in);
+    std::cout << "Cloud after Voxel Grid: " << cloud_in.size() << std::endl;
+}
 
-    // 使用平面分割算法（如RANSAC）将地面或不相关点剔除，仅保留与加注口和回收口相关的点。
+/**
+ * @brief 使用平面分割算法（如RANSAC）将地面或不相关点剔除，仅保留与加注口和回收口相关的点。
+ * @param cloud_in 输入点云
+ * @param param_distance 滤波参数
+ */
+static void removeOutlier(PointCloud &cloud_in, float param_distance) {
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    PointCloud::Ptr cloud_plane(new PointCloud), cloud_f(new PointCloud);
-    // Create the segmentation object
+    pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
+
     pcl::SACSegmentation<PointT> seg;
-    // Optional
     seg.setOptimizeCoefficients(true);
-    // Mandatory
     seg.setModelType(pcl::SACMODEL_PLANE);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(2);  // 0.01m
+    seg.setDistanceThreshold(3 * param_distance);
     seg.setMaxIterations(1000);
 
-    int nr_points = (int) cloud_filtered->size();
-    while (cloud_filtered->size() > 0.3 * nr_points) {
-        std::cout << "Cloud before RANSAC: " << cloud_filtered->size() << std::endl;
+    int nr_points = (int) cloud_in.size();
+    while (cloud_in.size() > int(0.3 * nr_points) && cloud_in.size() > int(1e4)) {
         // Segment the largest planar component from the remaining cloud
-        seg.setInputCloud(cloud_filtered);
-        seg.segment(*inliers, *coefficients);
-        if (inliers->indices.size() == 0) {
-            std::cout << "Could not estimate a planar model for the given dataset." << std::endl;
-            break;
-        }
+        seg.setInputCloud(cloud_in.makeShared());
+        seg.segment(*inlines, *coefficients);
 
-        // Extract the planar inliers from the input cloud
+        // Extract the planar inlines from the input cloud
         pcl::ExtractIndices<PointT> extract;
-        extract.setInputCloud(cloud_filtered);
-        extract.setIndices(inliers);
-        extract.setNegative(false);
-        extract.filter(*cloud_plane);
-        std::cout << "PointCloud representing the planar component: " << cloud_plane->size() << " data points."
-                  << std::endl;
-
-        // Remove the planar inliers, extract the rest
+        extract.setInputCloud(cloud_in.makeShared());
+        extract.setIndices(inlines);
         extract.setNegative(true);
-        extract.filter(*cloud_f);
-        *cloud_filtered = *cloud_f;
+        extract.filter(cloud_in);
+        std::cout << "After remove planar component: " << cloud_in.size() << std::endl;
     }
-
-    std::cout << "Cloud after RANSAC: " << cloud_filtered->size() << std::endl;
-
-    return *cloud_filtered;
 }
+
 
 /**
  * @brief 将加注口和回收口从点云数据中分离出来，以便进一步拟合其位姿。
@@ -94,17 +78,20 @@ static PointCloud filte(PointCloud &cloud_in) {
  * 此时可结合RGB图像进行辅助，如果图像质量较好，可以使用颜色信息增强分割精度。
  *
  * @param cloud_in 输入点云
+ * @param param_distance 滤波参数
+ * @param point_size 点云簇的最小和最大尺寸
  */
-static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in) {
+static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float param_distance, int point_size) {
     PointCloud::Ptr cloud = cloud_in.makeShared();
     // 点云聚类
     pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
     tree->setInputCloud(cloud);
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance(3);
-    ec.setMinClusterSize(1000);
-    ec.setMaxClusterSize(10000);
+    ec.setClusterTolerance(3 * param_distance);
+    // min cluster size 比较重要，如果设置太小，会导致一些噪声点被误认为是簇；如果设置太大，会导致无法检测到目标。
+    ec.setMinClusterSize(point_size / 100);
+    ec.setMaxClusterSize(point_size);
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud);
     ec.extract(cluster_indices);
@@ -131,36 +118,104 @@ static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in) {
 
 
 /**
- * @brief 对加注口和回收口的点云数据进行几何拟合(拟合圆形结构)，得到其位姿。
- * 步骤:
- * 圆拟合：使用PCL中的RANSAC或Least Squares Circle Fitting（最小二乘圆拟合）算法，基于点云提取加注口和回收口的圆形边缘，拟合出圆心位置和法向量。
- * RANSAC适用于含有噪声的数据，它能通过迭代地随机选择点集进行拟合，并找到最优解。
- * 法向量估计：通过拟合圆的点集计算其法向量。如果圆面不平整或有偏差，可以结合主成分分析（PCA）法确定法向量方向。
- *
- * @param cloud_in 输入点云
- * @return 输出为圆心的3D坐标 $(x, y, z)$ 和法向量 $(n_x, n_y, n_z)$。
+ * @brief 计算点云中每个点到最近邻点的距离，得到最小距离、最大距离和平均距离。
  */
+std::vector<float> computePointDistances(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud) {
+    float min_dist, max_dist, avg_dist = 0;
+    // 初始化变量
+    min_dist = std::numeric_limits<float>::max();
+    max_dist = 0.0;
+    float total_dist = 0.0;
+    int point_count = 0;
 
-static std::vector<float> geometryFitting(PointCloud &cloud_in) {
+    // 使用KD-Tree加速最近邻搜索
+    pcl::KdTreeFLANN<pcl::PointXYZ> tree;
+    tree.setInputCloud(cloud);
+
+    // 遍历点云中的每个点
+    for (auto point: cloud->points) {
+        std::vector<int> pointIdxNKNSearch(2); // 搜索最近的两个点（包括自身）
+        std::vector<float> pointNKNSquaredDistance(2);
+
+        if (tree.nearestKSearch(point, 2, pointIdxNKNSearch, pointNKNSquaredDistance) > 0) {
+            float dist = std::sqrt(pointNKNSquaredDistance[1]); // 最近邻距离
+
+            // 更新最小值、最大值
+            if (dist < min_dist) min_dist = dist;
+            if (dist > max_dist) max_dist = dist;
+
+            total_dist += dist;
+            point_count++;
+        }
+    }
+
+    // 计算平均距离
+    if (point_count > 0) {
+        avg_dist = total_dist / float(point_count);
+    }
+
+    return {min_dist, max_dist, avg_dist};
+}
+
+
+/**
+ * @brief Perform geometric fitting (fit circular structures) on the point cloud data of the filling and recovering ports, to obtain their pose.
+ * Steps:
+ * Circle Fitting: Use the RANSAC or Least Squares Circle Fitting algorithm in PCL, to extract the circular edges of the filling and recovering ports from the point cloud and fit the center position and normal vector.
+ * RANSAC is suitable for data with noise, as it can iteratively select random point sets for fitting and find the optimal solution.
+ * Normal Vector Estimation: Calculate the normal vector from the point set fitted to the circle.
+ * If the circular surface is uneven or has deviations, the direction of the normal vector can be determined in conjunction with Principal Component Analysis (PCA).
+ *
+ * @param cloud_in Input point cloud
+ * @return Outputs the 3D coordinates of the circle center $(x, y, z)$ and the normal vector $(n_x, n_y, n_z)$.
+ */
+static std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
     // 圆拟合
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
     pcl::SACSegmentation<PointT> seg;
     seg.setOptimizeCoefficients(true);
     seg.setModelType(pcl::SACMODEL_CIRCLE3D);
     seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(1);
+    seg.setDistanceThreshold(param_distance);
     seg.setMaxIterations(100);
     seg.setInputCloud(cloud_in.makeShared());
-    seg.segment(*inliers, *coefficients);
+    seg.segment(*inlines, *coefficients);
 
-    // 法向量估计
-    Eigen::Vector3f center(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
-    Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
-    std::cout << "Circle center: " << center << std::endl;
-    std::cout << "Circle normal: " << normal << std::endl;
+    int inside_circle_count = 0;
+    // 提取圆的参数：圆心 (coefficients->values[0], coefficients->values[1], coefficients->values[2])
+    // 半径 coefficients->values[3]
+    double cx = coefficients->values[0];
+    double cy = coefficients->values[1];
+    double cz = coefficients->values[2];
+    double radius = (coefficients->values[3] + coefficients->values[4] + coefficients->values[5]) / 3;
 
-    return {center.x(), center.y(), center.z(), normal.x(), normal.y(), normal.z()};
+    // 遍历点云，计算每个点到圆心的距离
+    for (const auto &point: cloud_in.points) {
+        double distance_to_center = std::sqrt((point.x - cx) * (point.x - cx) +
+                                              (point.y - cy) * (point.y - cy));
+
+        // 判断该点是否在圆内部
+        if (distance_to_center <= radius) {
+            inside_circle_count++;
+        }
+    }
+
+    // 计算圆内部点的比例
+    double inside_ratio = static_cast<double>(inside_circle_count) / cloud_in.size();
+
+
+    if (inside_ratio > 0.9) {
+        // 法向量估计
+        Eigen::Vector3f center(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
+        Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
+        std::cout << "Circle center: " << center << std::endl;
+        std::cout << "Circle normal: " << normal << std::endl;
+        return {center.x(), center.y(), center.z(), normal.x(), normal.y(), normal.z()};
+    }
+
+    std::cerr << "Circle fitting failed!" << std::endl;
+    return {};
 }
 
 
@@ -172,19 +227,37 @@ int main() {
     pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ly.pcd)", *cloud_load);
     pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ry.pcd)", *cloud_recycle);
 
-    PointCloud cloud_in_filtered = filte(*cloud_in);
-//    pcl::visualization::CloudViewer viewer("Cloud Viewer");
-//    viewer.showCloud(cloud_in_filtered.makeShared());
+//    pcl::visualization::CloudViewer viewer("Cloud Viewer"), viewer2("Cloud Viewer");
+//    viewer.showCloud(cloud_load);
 //    while (!viewer.wasStopped()) {}
+//    viewer2.showCloud(cloud_recycle);
+//    while (!viewer2.wasStopped()) {}
 
-    std::vector<PointCloud::Ptr> cloud_interest = segmentation(cloud_in_filtered);
+    std::vector<int> indices;
+    std::cout << "Cloud before filtering: " << cloud_in->size() << std::endl;
+    pcl::removeNaNFromPointCloud(*cloud_in, *cloud_in, indices);
+    pcl::removeNaNFromPointCloud(*cloud_load, *cloud_load, indices);
+    pcl::removeNaNFromPointCloud(*cloud_recycle, *cloud_recycle, indices);
+    std::cout << "Cloud after removing NaN: " << cloud_in->size() << std::endl;
+
+    downSampling(*cloud_in);
+    std::vector<float> distances = computePointDistances(cloud_in);
+    float avg_dist = distances[2];
+    std::cout << "Average distance after down sampling: " << avg_dist << std::endl;
+
+    removeOutlier(*cloud_in, avg_dist);
+    distances = computePointDistances(cloud_in);
+    avg_dist = distances[2];
+    std::cout << "Average distance after RANSAC: " << avg_dist << std::endl;
+
+    std::vector<PointCloud::Ptr> cloud_interest = segmentation(*cloud_in, avg_dist, cloud_in->size());
     for (const auto &cloud: cloud_interest) {
-//        pcl::visualization::CloudViewer viewer2("Cloud Viewer");
-//        viewer2.showCloud(cloud);
+        pcl::visualization::CloudViewer viewer3("Cloud Viewer");
+        viewer3.showCloud(cloud);
+        while (!viewer3.wasStopped()) {}
         // 进行几何拟合
-        std::vector<float> result = geometryFitting(*cloud);
-        std::cout << "Center: (" << result[0] << ", " << result[1] << ", " << result[2] << ")" << std::endl;
-//        while (!viewer2.wasStopped()) {}
+        std::vector<float> result = geometryFitting(*cloud, avg_dist);
+        std::cout << result[3] << result[4] << result[5] << std::endl;
     }
 
     return 0;
