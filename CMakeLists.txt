@@ -10,20 +10,16 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
  
-add_executable(LoRe src/BoxClipper3D.cpp
-        src/pcd_reader.cpp
-        src/passthrough.cpp
-        src/passthrough.cpp
-        src/voxel_grid.cpp
-        src/statistical_removal.cpp
-        src/statistical_removal.cpp
-        src/icp.cpp
-        src/icp.cpp
-        src/interactive_icp.cpp
+add_executable(LoRe
+        src/BoxClipper3D.cpp
+        src/filter.cpp
         src/interactive_icp.cpp
         src/lore.cpp
-        src/lore.cpp
-        src/cluster_extraction.cpp)
+        src/cluster_extraction.cpp
+        src/print.cpp
+        src/print.h
+        src/filter.h
+        src/lore.h)
 target_link_libraries (LoRe ${PCL_LIBRARIES} )
  
 install(TARGETS LoRe RUNTIME DESTINATION bin)

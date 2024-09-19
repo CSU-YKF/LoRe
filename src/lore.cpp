@@ -1,86 +1,20 @@
 //
 // Created by Rvosuke on 2024/9/8.
 //
-#include "pcl/io/pcd_io.h"
-#include "pcl/point_types.h"
-#include "pcl/ModelCoefficients.h"
-#include "pcl/filters/filter.h"
-#include "pcl/filters/extract_indices.h"
-#include "pcl/filters/voxel_grid.h"
-#include "pcl/search/kdtree.h"
-#include "pcl/segmentation/extract_clusters.h"
-#include "pcl/segmentation/sac_segmentation.h"
-#include "pcl/visualization/cloud_viewer.h"
-
-typedef pcl::PointXYZ PointT;
-typedef pcl::PointCloud<PointT> PointCloud;
+#include "lore.h"
+#include "filter.h"
 
 /**
- * @brief 对点云数据进行滤波处理，去除噪声和稀疏点。
- * 步骤:
- * 下采样：使用体素网格下采样算法（Voxel Grid Down sampling）对点云进行降采样，减少点云数据量。
- * 去除离群点：使用统计滤波（Statistical Outlier Removal）或体素网格下采样（Voxel Grid Down sampling）来降低点云的噪声和密度，优化处理速度。
- * 由于Statistical Outlier Removal算法的速度太慢，因此使用Voxel Grid Down sampling算法。
- * @param cloud_in 输入点云
- * @param param_distance 滤波参数
- */
-static void downSampling(PointCloud &cloud_in, float param_distance = 1.0) {
-    //    pcl::StatisticalOutlierRemoval<PointT> sor;
-    //    sor.setInputCloud(cloud_in.makeShared());
-    //    sor.setMeanK(50);
-    //    sor.setStddevMulThresh(1.0);
-    //    sor.filter(cloud_in);
-    pcl::VoxelGrid<PointT> vg;
-    vg.setInputCloud(cloud_in.makeShared());
-    vg.setLeafSize(3 * param_distance, 3 * param_distance, 3 * param_distance);
-    vg.filter(cloud_in);
-    std::cout << "Cloud after Voxel Grid: " << cloud_in.size() << std::endl;
-}
-
-/**
- * @brief 使用平面分割算法（如RANSAC）将地面或不相关点剔除，仅保留与加注口和回收口相关的点。
- * @param cloud_in 输入点云
- * @param param_distance 滤波参数
- */
-static void removeOutlier(PointCloud &cloud_in, float param_distance) {
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
-
-    pcl::SACSegmentation<PointT> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(3 * param_distance);
-    seg.setMaxIterations(1000);
-
-    int nr_points = (int) cloud_in.size();
-    while (cloud_in.size() > int(0.3 * nr_points) && cloud_in.size() > int(1e4)) {
-        // Segment the largest planar component from the remaining cloud
-        seg.setInputCloud(cloud_in.makeShared());
-        seg.segment(*inlines, *coefficients);
-
-        // Extract the planar inlines from the input cloud
-        pcl::ExtractIndices<PointT> extract;
-        extract.setInputCloud(cloud_in.makeShared());
-        extract.setIndices(inlines);
-        extract.setNegative(true);
-        extract.filter(cloud_in);
-        std::cout << "After remove planar component: " << cloud_in.size() << std::endl;
-    }
-}
-
-
-/**
- * @brief 将加注口和回收口从点云数据中分离出来，以便进一步拟合其位姿。
- * 步骤:
- * 点云聚类：使用Euclidean Cluster Extraction算法对点云进行聚类，将罐车的不同结构（如加注口、回收口、罐体等）分离成不同的点云簇。
- * 感兴趣区域提取：根据罐车的结构和已知几何布局，对位于加注口和回收口区域的点云进行提取。
- * 此时可结合RGB图像进行辅助，如果图像质量较好，可以使用颜色信息增强分割精度。
- *
- * @param cloud_in 输入点云
- * @param param_distance 滤波参数
- * @param point_size 点云簇的最小和最大尺寸
- */
+* @brief Segregate the filling and recovering ports from the point cloud data for further pose fitting.
+* Steps:
+* Point Cloud Clustering: Use the Euclidean Cluster Extraction algorithm to cluster the point cloud, separating different structures of the tank truck (e.g., filling port, recovering port, tank body) into different point cloud clusters.
+* Region of Interest Extraction: Based on the structure and known geometric layout of the tank truck, extract the point cloud located in the regions of the filling and recovering ports.
+* Optionally, if the quality of the RGB images is good, use color information to enhance segmentation accuracy.
+*
+* @param cloud_in Input point cloud
+* @param param_distance Filtering parameter
+* @param point_size Minimum and maximum size of the point cloud clusters
+*/
 static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float param_distance, int point_size) {
     PointCloud::Ptr cloud = cloud_in.makeShared();
     // 点云聚类
@@ -95,7 +29,7 @@ static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float par
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud);
     ec.extract(cluster_indices);
-    std::cout << "Number of clusters: " << cluster_indices.size() << std::endl;
+    printt("Number of clusters: ", cluster_indices.size());
 
     // 创建一个PointCloud数组，每个元素代表一个点云簇
     std::vector<PointCloud::Ptr> clusters;
@@ -108,7 +42,7 @@ static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float par
         cloud_cluster->width = cloud_cluster->size();
         cloud_cluster->height = 1;
         cloud_cluster->is_dense = true;
-        std::cout << "Cluster " << cluster_id << " size: " << cloud_cluster->size() << std::endl;
+        printt("Cluster ", cluster_id, " size: ", cloud_cluster->size());
         cluster_id++;
         clusters.push_back(cloud_cluster);
     }
@@ -227,12 +161,6 @@ int main() {
     pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ly.pcd)", *cloud_load);
     pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ry.pcd)", *cloud_recycle);
 
-//    pcl::visualization::CloudViewer viewer("Cloud Viewer"), viewer2("Cloud Viewer");
-//    viewer.showCloud(cloud_load);
-//    while (!viewer.wasStopped()) {}
-//    viewer2.showCloud(cloud_recycle);
-//    while (!viewer2.wasStopped()) {}
-
     std::vector<int> indices;
     std::cout << "Cloud before filtering: " << cloud_in->size() << std::endl;
     pcl::removeNaNFromPointCloud(*cloud_in, *cloud_in, indices);
@@ -243,12 +171,9 @@ int main() {
     downSampling(*cloud_in);
     std::vector<float> distances = computePointDistances(cloud_in);
     float avg_dist = distances[2];
-    std::cout << "Average distance after down sampling: " << avg_dist << std::endl;
-
+    printt("Average distance after down sampling: ", avg_dist);
     removeOutlier(*cloud_in, avg_dist);
-    distances = computePointDistances(cloud_in);
-    avg_dist = distances[2];
-    std::cout << "Average distance after RANSAC: " << avg_dist << std::endl;
+
 
     std::vector<PointCloud::Ptr> cloud_interest = segmentation(*cloud_in, avg_dist, cloud_in->size());
     for (const auto &cloud: cloud_interest) {
