@@ -11,15 +11,18 @@ link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
  
 add_executable(LoRe
-        src/BoxClipper3D.cpp
+        src/box_clipper.cpp
         src/filter.cpp
         src/interactive_icp.cpp
         src/lore.cpp
-        src/cluster_extraction.cpp
+        src/segmentation.cpp
         src/print.cpp
-        src/print.h
-        src/filter.h
-        src/lore.h)
+        include/print.h
+        include/filter.h
+        include/lore.h
+        main.cpp
+        include/segmentation.h
+        include/type.h)
 target_link_libraries (LoRe ${PCL_LIBRARIES} )
  
 install(TARGETS LoRe RUNTIME DESTINATION bin)

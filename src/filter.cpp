@@ -1,7 +1,7 @@
 //
 // Created by Rvosuke on 2024/9/8.
 //
-#include "filter.h"
+#include "../include/filter.h"
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloud;
@@ -51,4 +51,17 @@ static int statisticalRemoval(PointCloud &cloud_in) {
     sor.setStddevMulThresh(1.0);
     sor.filter(cloud_in);
     return 0;
+}
+
+
+void cropBox(PointCloud &cloud_in, std::vector<float> &box_min, std::vector<float> &box_max) {
+    // Set the filtering box
+    pcl::CropBox<pcl::PointXYZ> crop_box;
+    crop_box.setInputCloud(cloud_in.makeShared());
+    crop_box.setMin(Eigen::Vector4f(box_min[0], box_min[1], box_min[2], 1)); // Set the minimum point
+    crop_box.setMax(Eigen::Vector4f(box_max[0], box_max[1], box_max[2], 1)); // Set the maximum point
+
+    // Crop the point cloud using CropBox
+    crop_box.filter(cloud_in);
+    printt("After CropBox: ", cloud_in.size());
 }

@@ -1,59 +1,9 @@
 //
 // Created by Rvosuke on 2024/9/8.
 //
-#include "lore.h"
-#include "filter.h"
-
-/**
-* @brief Segregate the filling and recovering ports from the point cloud data for further pose fitting.
-* Steps:
-* Point Cloud Clustering: Use the Euclidean Cluster Extraction algorithm to cluster the point cloud, separating different structures of the tank truck (e.g., filling port, recovering port, tank body) into different point cloud clusters.
-* Region of Interest Extraction: Based on the structure and known geometric layout of the tank truck, extract the point cloud located in the regions of the filling and recovering ports.
-* Optionally, if the quality of the RGB images is good, use color information to enhance segmentation accuracy.
-*
-* @param cloud_in Input point cloud
-* @param param_distance Filtering parameter
-* @param point_size Minimum and maximum size of the point cloud clusters
-*/
-static std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float param_distance, int point_size) {
-    PointCloud::Ptr cloud = cloud_in.makeShared();
-    // 点云聚类
-    pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
-    tree->setInputCloud(cloud);
-    std::vector<pcl::PointIndices> cluster_indices;
-    pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance(3 * param_distance);
-    // min cluster size 比较重要，如果设置太小，会导致一些噪声点被误认为是簇；如果设置太大，会导致无法检测到目标。
-    ec.setMinClusterSize(point_size / 100);
-    ec.setMaxClusterSize(point_size);
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud);
-    ec.extract(cluster_indices);
-    printt("Number of clusters: ", cluster_indices.size());
-
-    // 创建一个PointCloud数组，每个元素代表一个点云簇
-    std::vector<PointCloud::Ptr> clusters;
-    int cluster_id = 0;
-    for (const auto &cluster: cluster_indices) {
-        PointCloud::Ptr cloud_cluster(new PointCloud);
-        for (const auto &idx: cluster.indices) {
-            cloud_cluster->push_back((*cloud)[idx]);
-        }
-        cloud_cluster->width = cloud_cluster->size();
-        cloud_cluster->height = 1;
-        cloud_cluster->is_dense = true;
-        printt("Cluster ", cluster_id, " size: ", cloud_cluster->size());
-        cluster_id++;
-        clusters.push_back(cloud_cluster);
-    }
-
-    return clusters;
-}
+#include "../include/lore.h"
 
 
-/**
- * @brief 计算点云中每个点到最近邻点的距离，得到最小距离、最大距离和平均距离。
- */
 std::vector<float> computePointDistances(const pcl::PointCloud<pcl::PointXYZ>::Ptr &cloud) {
     float min_dist, max_dist, avg_dist = 0;
     // 初始化变量
@@ -91,19 +41,7 @@ std::vector<float> computePointDistances(const pcl::PointCloud<pcl::PointXYZ>::P
     return {min_dist, max_dist, avg_dist};
 }
 
-
-/**
- * @brief Perform geometric fitting (fit circular structures) on the point cloud data of the filling and recovering ports, to obtain their pose.
- * Steps:
- * Circle Fitting: Use the RANSAC or Least Squares Circle Fitting algorithm in PCL, to extract the circular edges of the filling and recovering ports from the point cloud and fit the center position and normal vector.
- * RANSAC is suitable for data with noise, as it can iteratively select random point sets for fitting and find the optimal solution.
- * Normal Vector Estimation: Calculate the normal vector from the point set fitted to the circle.
- * If the circular surface is uneven or has deviations, the direction of the normal vector can be determined in conjunction with Principal Component Analysis (PCA).
- *
- * @param cloud_in Input point cloud
- * @return Outputs the 3D coordinates of the circle center $(x, y, z)$ and the normal vector $(n_x, n_y, n_z)$.
- */
-static std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
+std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
     // 圆拟合
     pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
@@ -153,7 +91,7 @@ static std::vector<float> geometryFitting(PointCloud &cloud_in, float param_dist
 }
 
 
-int main() {
+int lore(int argc, char **argv) {
     PointCloud::Ptr cloud_in(new PointCloud);
     PointCloud::Ptr cloud_load(new PointCloud);
     PointCloud::Ptr cloud_recycle(new PointCloud);
