@@ -77,7 +77,7 @@ std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
     double inside_ratio = static_cast<double>(inside_circle_count) / cloud_in.size();
 
 
-    if (inside_ratio > 0.9) {
+    if (inside_ratio > 0.5) {
         // 法向量估计
         Eigen::Vector3f center(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
         Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
@@ -95,15 +95,15 @@ int lore(int argc, char **argv) {
     PointCloud::Ptr cloud_in(new PointCloud);
     PointCloud::Ptr cloud_load(new PointCloud);
     PointCloud::Ptr cloud_recycle(new PointCloud);
-    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\source.pcd)", *cloud_in);
-    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ly.pcd)", *cloud_load);
-    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ry.pcd)", *cloud_recycle);
+    pcl::io::loadPCDFile(R"(../datasets/source.pcd)", *cloud_in);
+//    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ly.pcd)", *cloud_load);
+//    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ry.pcd)", *cloud_recycle);
 
     std::vector<int> indices;
     std::cout << "Cloud before filtering: " << cloud_in->size() << std::endl;
     pcl::removeNaNFromPointCloud(*cloud_in, *cloud_in, indices);
-    pcl::removeNaNFromPointCloud(*cloud_load, *cloud_load, indices);
-    pcl::removeNaNFromPointCloud(*cloud_recycle, *cloud_recycle, indices);
+//    pcl::removeNaNFromPointCloud(*cloud_load, *cloud_load, indices);
+//    pcl::removeNaNFromPointCloud(*cloud_recycle, *cloud_recycle, indices);
     std::cout << "Cloud after removing NaN: " << cloud_in->size() << std::endl;
 
     downSampling(*cloud_in);
@@ -115,11 +115,14 @@ int lore(int argc, char **argv) {
 
     std::vector<PointCloud::Ptr> cloud_interest = segmentation(*cloud_in, avg_dist, cloud_in->size());
     for (const auto &cloud: cloud_interest) {
-        pcl::visualization::CloudViewer viewer3("Cloud Viewer");
-        viewer3.showCloud(cloud);
-        while (!viewer3.wasStopped()) {}
+//        pcl::visualization::CloudViewer viewer3("Cloud Viewer");
+//        viewer3.showCloud(cloud);
+//        while (!viewer3.wasStopped()) {}
         // 进行几何拟合
         std::vector<float> result = geometryFitting(*cloud, avg_dist);
+        if (result.empty()) {
+            continue;
+        }
         std::cout << result[3] << result[4] << result[5] << std::endl;
     }
 

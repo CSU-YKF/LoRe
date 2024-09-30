@@ -22,13 +22,6 @@ std::string toString(const T &value) {
     return oss.str();
 }
 
-// 只打印一次时间戳
-template<typename T, typename... Args>
-void printt(const T &first, const Args&... args) {
-    std::cout << "[" << getCurrentTimestamp() << "] ";
-    printWithTimestamp(first, args...);  // 调用递归函数处理参数
-}
-
 // 基函数：处理最后一个参数
 template<typename T>
 void printWithTimestamp(const T &last) {
@@ -40,6 +33,13 @@ template<typename T, typename... Args>
 void printWithTimestamp(const T &first, const Args&... args) {
     std::cout << toString(first);  // 输出当前参数
     printWithTimestamp(args...);  // 递归处理剩下的参数
+}
+
+// 只打印一次时间戳
+template<typename T, typename... Args>
+void printt(const T &first, const Args&... args) {
+    std::cout << "[" << getCurrentTimestamp() << "] ";
+    printWithTimestamp(first, args...);  // 调用递归函数处理参数
 }
 
 #endif // LORE_PRINT_H
