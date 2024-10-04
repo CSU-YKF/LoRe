@@ -90,3 +90,52 @@ int heart() {
 
     return 0;
 }
+
+
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <Eigen/Dense>
+#include <cmath>
+#include <cstdlib>
+#include <random>
+
+typedef pcl::PointXYZ PointT;
+typedef pcl::PointCloud<PointT> PointCloud;
+
+
+auto clamp = [](float val, float min, float max) {
+    return (val < min) ? min : (val > max) ? max : val;
+};
+
+// 创建一个半径为200的3D圆形点云
+void createCirclePointCloud(float radius, const std::string& filename) {
+    PointCloud::Ptr circle_cloud(new PointCloud);
+
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_real_distribution<> distrib_s(0., 1.0); // 缩放因子
+
+    // 圆心位于 (0, 0, 0) 平面Z轴方向
+    const int num_circle_points = 5000; // 圆的点数
+    for (int i = 0; i < num_circle_points; ++i) {
+        float scale = clamp(distrib_s(gen), 0, 1); // 缩放因子
+        scale = std::sqrt(scale);
+        float theta = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(num_circle_points);
+        PointT p;
+        p.y = radius * cos(theta) * scale;
+        p.z = radius * sin(theta) * scale;
+        p.x = 0.0f;  // 假设圆形位于YZ平面
+        circle_cloud->push_back(p);
+    }
+
+    // 保存点云到PCD文件
+    pcl::io::savePCDFileASCII(filename, *circle_cloud);
+    std::cout << "Saved " << num_circle_points << " data points to " << filename << std::endl;
+}
+
+int circle(int argc, char **argv) {
+    // 生成半径为200的3D圆形点云并保存为PCD文件
+    createCirclePointCloud(200.0f, "circle_3d.pcd");
+
+    return 0;
+}

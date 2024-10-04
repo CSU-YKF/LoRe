@@ -11,9 +11,9 @@ std::vector<PointCloud::Ptr> segmentation(PointCloud &cloud_in, float param_dist
     tree->setInputCloud(cloud);
     std::vector<pcl::PointIndices> cluster_indices;
     pcl::EuclideanClusterExtraction<PointT> ec;
-    ec.setClusterTolerance(3 * param_distance);
+    ec.setClusterTolerance(param_distance);
     // min cluster size 比较重要，如果设置太小，会导致一些噪声点被误认为是簇；如果设置太大，会导致无法检测到目标。
-    ec.setMinClusterSize(point_size / 100);
+    ec.setMinClusterSize(point_size / 10);
     ec.setMaxClusterSize(point_size);
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud);

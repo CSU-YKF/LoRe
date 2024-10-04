@@ -1,6 +1,7 @@
 //
 // Created by Rvosuke on 2024/9/8.
 //
+#include <pcl/registration/icp.h>
 #include "../include/lore.h"
 
 
@@ -57,18 +58,15 @@ std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance, p
     Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
     float radius = coefficients->values[6];
 
-    std::cout << "Circle center: " << center << std::endl;
-    std::cout << "Circle normal: " << normal << std::endl;
-    std::cout << "Circle radius: " << radius << std::endl;
     return {center.x(), center.y(), center.z(), normal.x(), normal.y(), normal.z(), radius};
 }
 
-//void view_cloud(PointCloud &cloud, const std::string &window_name = "Cloud Viewer") {
-//    pcl::visualization::CloudViewer viewer(window_name);
-//    viewer.showCloud(cloud.makeShared());
-//
-//    while (!viewer.wasStopped()) {}
-//}
+void view_cloud(PointCloud &cloud, const std::string &window_name = "Cloud Viewer") {
+    pcl::visualization::CloudViewer viewer(window_name);
+    viewer.showCloud(cloud.makeShared());
+
+    while (!viewer.wasStopped()) {}
+}
 
 // 创建一个用于可视化的PCL Viewer，并显示原始点云和拟合的圆
 void view_cloud(PointCloud &cloud, const std::vector<float>& circle_params) {
@@ -112,36 +110,54 @@ void view_cloud(PointCloud &cloud, const std::vector<float>& circle_params) {
 }
 
 
+// 使用ICP配准进行拟合判断
+bool icp_registration(const PointCloud::Ptr& source_cloud, const PointCloud::Ptr& target_cloud) {
+    pcl::IterativeClosestPoint<PointT, PointT> icp;
+    icp.setInputSource(source_cloud);
+    icp.setInputTarget(target_cloud);
+
+    PointCloud::Ptr final_cloud(new PointCloud);
+    icp.align(*final_cloud);
+
+    std::cout << "ICP has converged: " << icp.hasConverged() << " with score: " << icp.getFitnessScore() << std::endl;
+
+    return icp.hasConverged() && icp.getFitnessScore() < 50; // 设置一个阈值来判断配准的拟合效果
+}
+
 int lore(int argc, char **argv) {
     PointCloud::Ptr cloud_in(new PointCloud);
-    pcl::io::loadPCDFile(R"(../datasets/source.pcd)", *cloud_in);
-    std::vector<float> box_min = {-50, 0, 1100, 1.0};
-    std::vector<float> box_max = {750, 200, 1300, 1.0};
+    pcl::io::loadPCDFile(R"(../datasets/experiment_box/3926originPointCloud.pcd)", *cloud_in);
+    // 读取生成的3D圆形PCD文件
+    PointCloud::Ptr circle_cloud(new PointCloud);
+    pcl::io::loadPCDFile("../datasets/circle_3d.pcd", *circle_cloud);
+
+    std::vector<float> box_min = {-450, 0, 1000};
+    std::vector<float> box_max = {750, 200, 1300};
 
     std::vector<int> indices;
     printt("Cloud before filtering: ", cloud_in->size());
     cropBox(*cloud_in, box_min, box_max);
     printt("Cloud after CropBox: ", cloud_in->size());
 
-//    downSampling(*cloud_in);
     std::vector<float> distances = computePointDistances(cloud_in);
-    float avg_dist = distances[2];
-    printt("Average distance after down sampling: ", avg_dist);
+    float avg_dist = distances[2] * 3;
+    printt("Average distance: ", avg_dist);
     removeOutlier(*cloud_in, avg_dist);
     printt("Cloud after outlier removal: ", cloud_in->size());
 //    view_cloud(*cloud_in);
 
+    downSampling(*cloud_in, avg_dist);
+
     std::vector<PointCloud::Ptr> cloud_interest = segmentation(*cloud_in, avg_dist, cloud_in->size());
     for (const auto &cloud: cloud_interest) {
         pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-//        view_cloud(*cloud);
-        // 进行几何拟合
-        std::vector<float> result = geometryFitting(*cloud, avg_dist, coefficients);
-        if (result.empty()) {
-            continue;
+        view_cloud(*cloud);
+        if (icp_registration(cloud, circle_cloud)) {
+            std::vector<float> result = geometryFitting(*cloud, avg_dist, coefficients);
+            printt("Circle center: ", result[0], " ", result[1], " ", result[2]);
+            printt("Circle normal: ", result[3], " ", result[4], " ", result[5]);
+//            view_cloud(*cloud, result);
         }
-        view_cloud(*cloud, result);
     }
-
     return 0;
 }
