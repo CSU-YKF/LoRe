@@ -41,9 +41,8 @@ std::vector<float> computePointDistances(const pcl::PointCloud<pcl::PointXYZ>::P
     return {min_dist, max_dist, avg_dist};
 }
 
-std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
+std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance, pcl::ModelCoefficients::Ptr &coefficients) {
     // 圆拟合
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
     pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
     pcl::SACSegmentation<PointT> seg;
     seg.setOptimizeCoefficients(true);
@@ -54,76 +53,94 @@ std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance) {
     seg.setInputCloud(cloud_in.makeShared());
     seg.segment(*inlines, *coefficients);
 
-    int inside_circle_count = 0;
-    // 提取圆的参数：圆心 (coefficients->values[0], coefficients->values[1], coefficients->values[2])
-    // 半径 coefficients->values[3]
-    double cx = coefficients->values[0];
-    double cy = coefficients->values[1];
-    double cz = coefficients->values[2];
-    double radius = (coefficients->values[3] + coefficients->values[4] + coefficients->values[5]) / 3;
+    Eigen::Vector3f center(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
+    Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
+    float radius = coefficients->values[6];
 
-    // 遍历点云，计算每个点到圆心的距离
-    for (const auto &point: cloud_in.points) {
-        double distance_to_center = std::sqrt((point.x - cx) * (point.x - cx) +
-                                              (point.y - cy) * (point.y - cy));
+    std::cout << "Circle center: " << center << std::endl;
+    std::cout << "Circle normal: " << normal << std::endl;
+    std::cout << "Circle radius: " << radius << std::endl;
+    return {center.x(), center.y(), center.z(), normal.x(), normal.y(), normal.z(), radius};
+}
 
-        // 判断该点是否在圆内部
-        if (distance_to_center <= radius) {
-            inside_circle_count++;
-        }
+//void view_cloud(PointCloud &cloud, const std::string &window_name = "Cloud Viewer") {
+//    pcl::visualization::CloudViewer viewer(window_name);
+//    viewer.showCloud(cloud.makeShared());
+//
+//    while (!viewer.wasStopped()) {}
+//}
+
+// 创建一个用于可视化的PCL Viewer，并显示原始点云和拟合的圆
+void view_cloud(PointCloud &cloud, const std::vector<float>& circle_params) {
+    pcl::visualization::CloudViewer viewer("cloud");
+
+    // 创建一个带RGB信息的点云
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_rgb(new pcl::PointCloud<pcl::PointXYZRGB>);
+    for (const auto& point : cloud) {
+        pcl::PointXYZRGB p;
+        p.x = point.x;
+        p.y = point.y;
+        p.z = point.z;
+        p.r = 255;
+        p.g = 255;
+        p.b = 255;  // 设置原始点云为白色
+        cloud_rgb->push_back(p);
     }
 
-    // 计算圆内部点的比例
-    double inside_ratio = static_cast<double>(inside_circle_count) / cloud_in.size();
+    // 生成拟合的圆形并添加红色
+    Eigen::Vector3f center(circle_params[0], circle_params[1], circle_params[2]);
+    Eigen::Vector3f normal(circle_params[3], circle_params[4], circle_params[5]);
+    float radius = circle_params[6];
 
-
-    if (inside_ratio > 0.5) {
-        // 法向量估计
-        Eigen::Vector3f center(coefficients->values[0], coefficients->values[1], coefficients->values[2]);
-        Eigen::Vector3f normal(coefficients->values[3], coefficients->values[4], coefficients->values[5]);
-        std::cout << "Circle center: " << center << std::endl;
-        std::cout << "Circle normal: " << normal << std::endl;
-        return {center.x(), center.y(), center.z(), normal.x(), normal.y(), normal.z()};
+    // 创建圆形点
+    const int num_circle_points = 100; // 圆的点数
+    for (int i = 0; i < num_circle_points; ++i) {
+        float theta = 2.0f * M_PI * static_cast<float>(i) / static_cast<float>(num_circle_points);
+        Eigen::Vector3f point_on_circle = center + radius * Eigen::Vector3f(cos(theta), sin(theta), 0.0f);
+        pcl::PointXYZRGB p;
+        p.x = point_on_circle.x();
+        p.y = point_on_circle.y();
+        p.z = point_on_circle.z();
+        p.r = 255;
+        p.g = 0;
+        p.b = 0;
+        cloud_rgb->push_back(p);
     }
 
-    std::cerr << "Circle fitting failed!" << std::endl;
-    return {};
+    viewer.showCloud(cloud_rgb);
+    while (!viewer.wasStopped()) {}
 }
 
 
 int lore(int argc, char **argv) {
     PointCloud::Ptr cloud_in(new PointCloud);
-    PointCloud::Ptr cloud_load(new PointCloud);
-    PointCloud::Ptr cloud_recycle(new PointCloud);
     pcl::io::loadPCDFile(R"(../datasets/source.pcd)", *cloud_in);
-//    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ly.pcd)", *cloud_load);
-//    pcl::io::loadPCDFile(R"(D:\LoRe\datasets\sor_pass_ry.pcd)", *cloud_recycle);
+    std::vector<float> box_min = {-50, 0, 1100, 1.0};
+    std::vector<float> box_max = {750, 200, 1300, 1.0};
 
     std::vector<int> indices;
-    std::cout << "Cloud before filtering: " << cloud_in->size() << std::endl;
-    pcl::removeNaNFromPointCloud(*cloud_in, *cloud_in, indices);
-//    pcl::removeNaNFromPointCloud(*cloud_load, *cloud_load, indices);
-//    pcl::removeNaNFromPointCloud(*cloud_recycle, *cloud_recycle, indices);
-    std::cout << "Cloud after removing NaN: " << cloud_in->size() << std::endl;
+    printt("Cloud before filtering: ", cloud_in->size());
+    cropBox(*cloud_in, box_min, box_max);
+    printt("Cloud after CropBox: ", cloud_in->size());
 
-    downSampling(*cloud_in);
+//    downSampling(*cloud_in);
     std::vector<float> distances = computePointDistances(cloud_in);
     float avg_dist = distances[2];
     printt("Average distance after down sampling: ", avg_dist);
     removeOutlier(*cloud_in, avg_dist);
-
+    printt("Cloud after outlier removal: ", cloud_in->size());
+//    view_cloud(*cloud_in);
 
     std::vector<PointCloud::Ptr> cloud_interest = segmentation(*cloud_in, avg_dist, cloud_in->size());
     for (const auto &cloud: cloud_interest) {
-//        pcl::visualization::CloudViewer viewer3("Cloud Viewer");
-//        viewer3.showCloud(cloud);
-//        while (!viewer3.wasStopped()) {}
+        pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+//        view_cloud(*cloud);
         // 进行几何拟合
-        std::vector<float> result = geometryFitting(*cloud, avg_dist);
+        std::vector<float> result = geometryFitting(*cloud, avg_dist, coefficients);
         if (result.empty()) {
             continue;
         }
-        std::cout << result[3] << result[4] << result[5] << std::endl;
+        view_cloud(*cloud, result);
     }
 
     return 0;

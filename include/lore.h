@@ -42,7 +42,7 @@ std::vector<float> computePointDistances(const pcl::PointCloud<pcl::PointXYZ>::P
  * @param cloud_in Input point cloud
  * @return Outputs the 3D coordinates of the circle center $(x, y, z)$ and the normal vector $(n_x, n_y, n_z)$.
  */
-std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance);
+std::vector<float> geometryFitting(PointCloud &cloud_in, float param_distance, pcl::ModelCoefficients::Ptr &coefficients);
 
 int lore(int argc, char **argv);
 

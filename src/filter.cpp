@@ -28,7 +28,8 @@ void removeOutlier(PointCloud &cloud_in, const float param_distance) {
     seg.setMaxIterations(1000);
 
     int nr_points = (int) cloud_in.size();
-    while (cloud_in.size() > int(0.3 * nr_points) && cloud_in.size() > int(1e4)) {
+    int i = 0;
+    while (cloud_in.size() > int(0.3 * nr_points) && cloud_in.size() > int(1e4) && i < 3) {
         // Segment the largest planar component from the remaining cloud
         seg.setInputCloud(cloud_in.makeShared());
         seg.segment(*inlines, *coefficients);
@@ -37,9 +38,10 @@ void removeOutlier(PointCloud &cloud_in, const float param_distance) {
         pcl::ExtractIndices<PointT> extract;
         extract.setInputCloud(cloud_in.makeShared());
         extract.setIndices(inlines);
-        extract.setNegative(true);
+        extract.setNegative(false);
         extract.filter(cloud_in);
         printt("After remove planar component: ", cloud_in.size());
+        i++;
     }
 }
 
