@@ -1,10 +1,11 @@
 //
 // Created by Rvosuke on 2024/9/19.
 //
+
 #ifndef LORE_FILTER_H
 #define LORE_FILTER_H
 
-#include "print.h"
+#include "view.h"
 #include "type.h"
 
 #include <pcl/filters/voxel_grid.h>
@@ -12,7 +13,6 @@
 #include <pcl/filters/filter.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/crop_box.h>
-#include <pcl/segmentation/sac_segmentation.h>
 
 
 /**
@@ -27,16 +27,10 @@
 void downSampling(PointCloud &cloud_in, float param_distance = 1.0);
 
 /**
- * @brief Removes ground or irrelevant points using a plane segmentation algorithm (e.g., RANSAC), retaining only points related to the filling and recovering ports.
- * @param cloud_in Input point cloud
- * @param param_distance Filtering parameter
- */
-void removeOutlier(PointCloud &cloud_in, float param_distance);
-
-/**
  * @brief CropBox-like filters out the point cloud data within a given cube of the user.
  * @param cloud_in The input point cloud to be clipped.
  */
 void cropBox(PointCloud &cloud_in, std::vector<float> &box_min, std::vector<float> &box_max);
+
 
 #endif //LORE_FILTER_H

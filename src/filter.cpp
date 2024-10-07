@@ -1,10 +1,8 @@
 //
 // Created by Rvosuke on 2024/9/8.
 //
-#include "../include/filter.h"
 
-typedef pcl::PointXYZ PointT;
-typedef pcl::PointCloud<PointT> PointCloud;
+#include "../include/filter.h"
 
 
 void downSampling(PointCloud &cloud_in, const float param_distance) {
@@ -13,51 +11,6 @@ void downSampling(PointCloud &cloud_in, const float param_distance) {
     vg.setLeafSize(param_distance, param_distance, param_distance);
     vg.filter(cloud_in);
     printt("Cloud after Voxel Grid: ", cloud_in.size());
-}
-
-
-void removeOutlier(PointCloud &cloud_in, const float param_distance) {
-    PointCloud cloud_filtered = cloud_in;
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inlines(new pcl::PointIndices);
-
-    pcl::SACSegmentation<PointT> seg;
-    seg.setOptimizeCoefficients(true);
-    seg.setModelType(pcl::SACMODEL_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(param_distance);
-    seg.setMaxIterations(1000);
-
-    pcl::PointIndices::Ptr merged_inlines(new pcl::PointIndices);
-    int i = 0;
-    while (i < 10) {
-        // Segment the largest planar component from the remaining cloud
-        seg.setInputCloud(cloud_filtered.makeShared());
-        seg.segment(*inlines, *coefficients);
-        if (!inlines->indices.empty() && coefficients->values[2] > 0.9 &&
-            inlines->indices.size() > 0.1 * cloud_in.size()) {
-            printt("Plane found: ", inlines->indices.size());
-            printt("Plane coefficients: ", coefficients->values[2]);
-            merged_inlines->indices.insert(merged_inlines->indices.end(), inlines->indices.begin(),
-                                           inlines->indices.end());
-        }
-
-        // Extract the planar inlines from the input cloud
-        pcl::ExtractIndices<PointT> extract;
-        extract.setInputCloud(cloud_filtered.makeShared());
-        extract.setIndices(inlines);
-        extract.setNegative(true);
-        extract.filter(cloud_filtered);
-        i++;
-    }
-
-
-    // Remove the planar inlines, extract the rest of the point cloud
-    pcl::ExtractIndices<PointT> extract;
-    extract.setInputCloud(cloud_in.makeShared());
-    extract.setIndices(merged_inlines);
-    extract.setNegative(false);
-    extract.filter(cloud_in);
 }
 
 

@@ -4,5 +4,5 @@
 #include "include/lore.h"
 
 int main(int argc, char **argv) {
-    return lore(argc, argv);
+    return lore("../datasets/source.pcd");
 }
