@@ -39,5 +39,6 @@ private:
 protected:
     void dragEnterEvent(QDragEnterEvent *event) override;
     void dropEvent(QDropEvent *event) override;
+    void mousePressEvent(QMouseEvent *event) override;
 };
 #endif // MAINWINDOW_H

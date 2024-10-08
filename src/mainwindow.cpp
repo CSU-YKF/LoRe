@@ -27,28 +27,28 @@ void MainWindow::dropEvent(QDropEvent *event) {
     }
     QString file_path = urls.first().toLocalFile();
     if (file_path.endsWith(".pcd")) {
-        // 调用 LoRe 函数并显示结果
+        // The LoRe function is called and the result is displayed
         std::string result = lore(file_path.toStdString());
         ui->resultTextEdit->setText(QString::fromStdString(result));
     } else {
-        ui->resultTextEdit->setText("文件格式不正确");
+        ui->resultTextEdit->setText("The file format is incorrect");
     }
 }
 
-// 保存结果为TXT文件的槽函数
+// Save the result as a slot function for a TXT file
 void MainWindow::saveResultToFile() {
     // 获取 resultTextEdit 中的文本
     QString resultText = ui->resultTextEdit->toPlainText();
 
     if (resultText.isEmpty()) {
-        QMessageBox::warning(this, "保存失败", "结果文本为空，无法保存！");
+        QMessageBox::warning(this, "Save failed", "The resulting text is empty and cannot be saved!");
         return;
     }
 
-    // 打开文件保存对话框，用户选择保存路径
-    QString fileName = QFileDialog::getSaveFileName(this, "保存结果为TXT", "", "Text Files (*.txt)");
+    // The file save dialog box opens, and the user selects the save path
+    QString fileName = QFileDialog::getSaveFileName(this, "The saved result is TXT", "", "Text Files (*.txt)");
 
-    // 如果用户取消保存，返回
+    // If the user cancels the save, it returns
     if (fileName.isEmpty()) {
         return;
     }
@@ -56,7 +56,7 @@ void MainWindow::saveResultToFile() {
     // 创建文件对象并尝试打开文件
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::warning(this, "保存失败", "无法打开文件进行写入！");
+        QMessageBox::warning(this, "Save failed", "Unable to open file for writing！");
         return;
     }
 
@@ -66,5 +66,22 @@ void MainWindow::saveResultToFile() {
     file.close();
 
     // 提示用户保存成功
-    QMessageBox::information(this, "保存成功", "结果已成功保存为TXT文件！");
+    QMessageBox::information(this, "Save success", "The result has been successfully saved as a TXT file！");
+}
+
+void MainWindow::mousePressEvent(QMouseEvent *event) {
+    // 检查是否点击在 dragDropArea
+    if (ui->dragDropArea->geometry().contains(event->pos())) {
+        // 打开文件选择对话框，用户选择 PCD 文件
+        QString fileName = QFileDialog::getOpenFileName(this, "Select the PCD file", "", "PCD Files (*.pcd)");
+
+        if (!fileName.isEmpty()) {
+            // 调用 LoRe 函数处理文件并显示结果
+            std::string result = lore(fileName.toStdString());
+            ui->resultTextEdit->setText(QString::fromStdString(result));
+        } else {
+            ui->resultTextEdit->setText("No files are selected");
+        }
+    }
+    ui->dragDropArea->setStyleSheet("background-color: #e0e0e0; border: 2px solid #888;");
 }

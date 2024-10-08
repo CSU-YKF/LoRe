@@ -15,14 +15,17 @@ std::string lore(const std::string& file_name) {
     std::ostringstream result_stream;
 
     result_stream << "Loaded " << cloud_in->size() << " data points from " << file_name << "\n";
-    std::vector<float> box_min = {-450., 0., 1000.};
+    std::vector<float> box_min = {-450., 0., 950.};
     std::vector<float> box_max = {750., 200., 1300.};
+    view_cloud(*cloud_in);
     cropBox(*cloud_in, box_min, box_max);
     downSampling(*cloud_in, 1);
+    view_cloud(*cloud_in);
 
     float avg_dist = 3;
     planarSegmentation(*cloud_in, avg_dist);
     std::vector<PointCloud::Ptr> cloud_interest = cloudClustering(*cloud_in, avg_dist);
+    view_cloud(*cloud_in);
 
     std::vector<std::vector<float>> results;
     for (const auto &cloud: cloud_interest) {
@@ -30,6 +33,7 @@ std::string lore(const std::string& file_name) {
         if (icp_registration(cloud, circle_cloud)) {
             std::vector<float> result = geometryFitting(*cloud, avg_dist);
             results.push_back(result);
+            view_cloud(*cloud);
         }
     }
     float min_result = std::numeric_limits<float>::max();
@@ -46,10 +50,10 @@ std::string lore(const std::string& file_name) {
             recycle_port = res;
         }
     }
-    result_stream << "加注口圆心: (" << load_port[0] << ", " << load_port[1] << ", " <<load_port[2] << ") \n";
-    result_stream << "加注口法向: (" << load_port[3] << ", " << load_port[4] << ", " <<load_port[5] << ") \n";
-    result_stream << "回收口圆心: (" << recycle_port[0] << ", " << recycle_port[1] << ", " <<recycle_port[2] << ") \n";
-    result_stream << "回收口法向: (" << recycle_port[3] << ", " << recycle_port[4] << ", " <<recycle_port[5] << ") \n";
+    result_stream << "Load port center: (" << load_port[0] << ", " << load_port[1] << ", " <<load_port[2] << ") \n";
+    result_stream << "Load port normal: (" << load_port[3] << ", " << load_port[4] << ", " <<load_port[5] << ") \n";
+    result_stream << "Recycle port center: (" << recycle_port[0] << ", " << recycle_port[1] << ", " <<recycle_port[2] << ") \n";
+    result_stream << "Recycle port normal: (" << recycle_port[3] << ", " << recycle_port[4] << ", " <<recycle_port[5] << ") \n";
 
     return result_stream.str();
 }

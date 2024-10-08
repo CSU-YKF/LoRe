@@ -53,7 +53,7 @@ QLabel#dragDropArea:hover {
 </string>
     </property>
     <property name="text">
-     <string>拖入PCD文件</string>
+     <string>Drop PCD Here</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -109,7 +109,7 @@ QPushButton#saveButton:hover {
 </string>
     </property>
     <property name="text">
-     <string>保存结果为TXT</string>
+     <string>Save</string>
     </property>
    </widget>
   </widget>
