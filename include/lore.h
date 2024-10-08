@@ -17,7 +17,7 @@
 #include <pcl/segmentation/sac_segmentation.h>
 
 
-int lore(const std::string& file_name);
+std::string lore(const std::string& file_name);
 
 
 #endif //LORE_LORE_H
