@@ -1,0 +1,6 @@
+Loaded 782427 data points from D:/LoRe/datasets/real_vehicle/ICP_input5.pcd
+Load port center: (-50.8932, 155.366, 1066.28) 
+Load port normal: (40.3912, 0.0557237, -0.0257339) 
+Recycle port center: (282.289, 138.46, 1077.91) 
+Recycle port normal: (59.6043, -0.104373, 0.0229527) 
+Function runtime: 0.251364 seconds

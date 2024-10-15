@@ -1,0 +1,6 @@
+Loaded 1345200 data points from D:/LoRe/datasets/experiment_box/4854originPointCloud.pcd
+Load port center: (-79.0888, 110.676, 1231.16) 
+Load port normal: (55.5871, 0.117487, -0.0259641) 
+Recycle port center: (328.515, 87.4689, 1182.72) 
+Recycle port normal: (62.7674, 0.1087, -0.0104748) 
+Function runtime: 0.240574 seconds

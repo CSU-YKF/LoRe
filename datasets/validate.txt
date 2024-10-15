@@ -1,0 +1,5 @@
+Loaded 1363200 data points from D:/LoRe/datasets/source.pcd
+Load port center: (127.505, 108.633, 1231.35) 
+Load port normal: (50.6143, 0.159773, 0.0044457) 
+Recycle port center: (534.596, 90.5712, 1168.18) 
+Recycle port normal: (72.7538, -0.178099, -0.00595618) 
