@@ -33,5 +33,5 @@ bool icp_registration(const PointCloud::Ptr& source_cloud, const PointCloud::Ptr
     icp.align(*final_cloud);
 
     printt("ICP has converged:", icp.hasConverged(), " with score: ", icp.getFitnessScore());
-    return icp.hasConverged() && icp.getFitnessScore() < threshold; // 设置一个阈值来判断配准的拟合效果
+    return icp.hasConverged() && icp.getFitnessScore() < threshold; // Set a threshold to determine how well the registration fits
 }

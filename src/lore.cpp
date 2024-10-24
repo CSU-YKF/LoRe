@@ -27,7 +27,7 @@ std::string lore(const std::string& file_name) {
     float avg_dist = 3;
     planarSegmentation(*cloud_in, avg_dist);
     std::vector<PointCloud::Ptr> cloud_interest = cloudClustering(*cloud_in, avg_dist);
-//    view_cloud(*cloud_in);
+    view_cloud(*cloud_in);
 
     std::vector<std::vector<float>> results;
     for (const auto &cloud: cloud_interest) {
